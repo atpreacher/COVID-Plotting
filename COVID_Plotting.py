@@ -1,8 +1,9 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import urllib.request as request
+import csv
 
-#
-filename = r'C:\Users\Andrew\Downloads\us-counties.csv'
+url = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv'
 
 county_list = [('Calvert', 'Maryland'),
                ('Charles', 'Maryland'),
@@ -23,25 +24,25 @@ county_list = [('Calvert', 'Maryland'),
                ('Warren', 'Virginia'),
                ('District of Columbia', 'District of Columbia')]
 
-df = pd.read_csv(filename, index_col = 'date') 
+df = pd.read_csv(url, index_col = 'date') 
 df.index = pd.to_datetime(df.index, format = '%Y-%m-%d')
 
 
 #%%Test Code
 
-county_cond = df['county'] == 'Arlington'
-state_cond =  df['state'] == 'Virginia'
+# county_cond = df['county'] == 'Arlington'
+# state_cond =  df['state'] == 'Virginia'
 
-arl_df = df.loc[county_cond & state_cond]
+# arl_df = df.loc[county_cond & state_cond]
 
 
-arl_df.loc[:,'new cases'] = arl_df.loc[:, 'cases'].diff() #compute difference between rows to get daily numbers
-arl_df.iat[0, 6] = 0 #replace NaN with 0 for first row
-arl_rolling = arl_df['new cases'].rolling(window = 7).mean() #compute rolling 7 day average
+# arl_df.loc[:,'new cases'] = arl_df.loc[:, 'cases'].diff() #compute difference between rows to get daily numbers
+# arl_df.iat[0, 5] = 0 #replace NaN with 0 for first row
+# arl_rolling = arl_df['new cases'].rolling(window = 7).mean() #compute rolling 7 day average
 
-plt.plot(arl_df['date'], arl_df['new cases'], label = 'Arlington County')
-plt.plot(arl_df['date'], arl_rolling)
-plt.legend()
+# plt.plot(arl_df['date'], arl_df['new cases'], label = 'Arlington County')
+# plt.plot(arl_df['date'], arl_rolling)
+# plt.legend()
 
 
 

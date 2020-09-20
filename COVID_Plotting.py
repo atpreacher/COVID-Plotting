@@ -48,8 +48,15 @@ df.index = pd.to_datetime(df.index, format = '%Y-%m-%d')
 
 #%% Filter data and compute relevant info
 def parse_data(df, county_list):
-    data_dict = {}
-    rolling_dict = {}
+    # data_dict = {}
+    # rolling_dict = {}
+    
+    temp_df = pd.DataFrame()
+    cur_df = pd.DataFrame()
+    
+    combined_df = pd.DataFrame(columns = ['new cases'])
+    combined_df = 0
+    
     
     combined_data = pd.DataFrame(index = df.index.unique())
     combined_data['new cases'] = 0 
@@ -57,35 +64,51 @@ def parse_data(df, county_list):
     for county in county_list:
         county_cond = df['county'] == county[0] 
         state_cond =  df['state'] == county[1]
-        data_dict[county[0]] = df.loc[county_cond & state_cond]
+
+        cur_df = df.loc[county_cond & state_cond]
+        
         
         #compute difference between rows to get daily numbers
-        data_dict[county[0]].loc[:,'new cases'] = data_dict[county[0]].loc[:, 'cases'].diff() 
-        data_dict[county[0]].iat[0, 5] = 0 
+        # data_dict[county[0]].loc[:,'new cases'] = data_dict[county[0]].loc[:, 'cases'].diff() 
+        # data_dict[county[0]].iat[0, 5] = 0 
         
-        #compute 7 day rolling average
-        rolling_dict[county[0] + ' (7 day avg.)'] = data_dict[county[0]]['new cases'].rolling(window = 7).mean().to_frame()
+        cur_df['new cases'] = cur_df['cases'].diff() 
+        cur_df['new case 7 day avg'] = cur_df['new cases'].rolling(window = 7).mean().to_frame()
         
-        #Computed combined cases
-        combined_data['new cases'] = data_dict[county[0]].loc[:,'new cases'] + combined_data['new cases']
-        combined_data['new cases'] = combined_data['new cases'].fillna(0)
+        temp_df = pd.concat([temp_df, cur_df])
+        
+        # combined_df = cur_df['new cases'] + combined_df['new cases']
+
+        combined_df = temp_df.groupby(['date'])[['new cases']].sum()
+        combined_df['new cases rolling'] = combined_df['new cases'].rolling(window = 7).mean().to_frame()
+        
+        
+        
+
+        
+        # #compute 7 day rolling average
+        # rolling_dict[county[0] + ' (7 day avg.)'] = data_dict[county[0]]['new cases'].rolling(window = 7).mean().to_frame()
+        
+        # #Computed combined cases
+        # combined_data['new cases'] = data_dict[county[0]].loc[:,'new cases'] + combined_data['new cases']
+        # combined_data['new cases'] = combined_data['new cases'].fillna(0)
     
-    #Make combined data into dataframe dictionary    
-    combined_dict = {}
-    combined_dict['combined'] = combined_data['new cases'].to_frame()
-    combined_dict['combined rolling'] = combined_dict['combined'].rolling(window = 7).mean()
+    # #Make combined data into dataframe dictionary    
+    # combined_dict = {}
+    # combined_dict['combined'] = combined_data['new cases'].to_frame()
+    # combined_dict['combined rolling'] = combined_dict['combined'].rolling(window = 7).mean()
             
-    return data_dict, rolling_dict, combined_dict
+    return temp_df, combined_df
 
 # Plot data using dataframe dictionary
-def plot_counties(data, label = 'Daily Case Counts'):
+def plot_counties(xvals, yvals,  label = 'Daily Case Counts'):
     a = plt.figure()
     
-    for key, value in data.items(): 
-        x_data = value.index
-        y_data = value['new cases']
+    # for key, value in data.items(): 
+    #     x_data = value.index
+    #     y_data = value['new cases']
         
-        plt.plot(x_data, y_data, label = key)
+    plt.plot(x_data, y_data, label = key)
         
     plt.legend()
     plt.xlabel('Date')
@@ -95,7 +118,9 @@ def plot_counties(data, label = 'Daily Case Counts'):
 
     
 #%%Plot data
-data_dict, rolling_dict, combined_dict = parse_data(df, county_list)
+temp_df, combined_df = parse_data(df, county_list)
+
+plot_counties(temp_df.index
 
 plot_counties(data_dict) #plot daily case counts by county
 plot_counties(rolling_dict, 'Rolling Average Daily Case Counts')

@@ -1,7 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-import urllib.request as request
-import csv
+import matplotlib.dates as mdates
 
 url = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv'
 
@@ -14,7 +13,6 @@ county_list = [('Calvert', 'Maryland'),
                ('Clarke', 'Virginia'),
                ('Culpeper', 'Virginia'),
                ('Fairfax', 'Virginia'),
-               ('Fairfax', 'Virginia'),
                ('Fauquier', 'Virginia'),
                ('Loudoun', 'Virginia'),
                ('Prince William', 'Virginia'),
@@ -24,106 +22,103 @@ county_list = [('Calvert', 'Maryland'),
                ('Warren', 'Virginia'),
                ('District of Columbia', 'District of Columbia')]
 
+arl_only = [('Arlington', 'Virginia')]
+
 df = pd.read_csv(url, index_col = 'date') 
 df.index = pd.to_datetime(df.index, format = '%Y-%m-%d')
 
 
-#%%Test Code
-
-# county_cond = df['county'] == 'Arlington'
-# state_cond =  df['state'] == 'Virginia'
-
-# arl_df = df.loc[county_cond & state_cond]
-
-
-# arl_df.loc[:,'new cases'] = arl_df.loc[:, 'cases'].diff() #compute difference between rows to get daily numbers
-# arl_df.iat[0, 5] = 0 #replace NaN with 0 for first row
-# arl_rolling = arl_df['new cases'].rolling(window = 7).mean() #compute rolling 7 day average
-
-# plt.plot(arl_df['date'], arl_df['new cases'], label = 'Arlington County')
-# plt.plot(arl_df['date'], arl_rolling)
-# plt.legend()
-
-
-
 #%% Filter data and compute relevant info
 def parse_data(df, county_list):
-    # data_dict = {}
-    # rolling_dict = {}
-    
-    temp_df = pd.DataFrame()
-    cur_df = pd.DataFrame()
-    
+    county_df = pd.DataFrame()
+    state_df = pd.DataFrame()
     combined_df = pd.DataFrame(columns = ['new cases'])
     combined_df = 0
     
+    temp_df = pd.DataFrame() #df for storing current county and state data
     
-    combined_data = pd.DataFrame(index = df.index.unique())
-    combined_data['new cases'] = 0 
     
     for county in county_list:
         county_cond = df['county'] == county[0] 
         state_cond =  df['state'] == county[1]
 
-        cur_df = df.loc[county_cond & state_cond]
+        temp_df = df.loc[county_cond & state_cond]
+        temp_df['new cases'] = temp_df['cases'].diff() #compute daily new cases
+        temp_df['new deaths'] = temp_df['deaths'].diff()
+        temp_df['new cases rolling'] = temp_df['new cases'].rolling(window = 7).mean().to_frame() #compute rolling average of daily new cases
+        temp_df['new deaths rolling'] = temp_df['new deaths'].rolling(window = 7).mean().to_frame() #compute rolling average of daily new cases
         
         
-        #compute difference between rows to get daily numbers
-        # data_dict[county[0]].loc[:,'new cases'] = data_dict[county[0]].loc[:, 'cases'].diff() 
-        # data_dict[county[0]].iat[0, 5] = 0 
+        county_df = pd.concat([county_df, temp_df])
         
-        cur_df['new cases'] = cur_df['cases'].diff() 
-        cur_df['new case 7 day avg'] = cur_df['new cases'].rolling(window = 7).mean().to_frame()
-        
-        temp_df = pd.concat([temp_df, cur_df])
-        
-        # combined_df = cur_df['new cases'] + combined_df['new cases']
-
-        combined_df = temp_df.groupby(['date'])[['new cases']].sum()
-        combined_df['new cases rolling'] = combined_df['new cases'].rolling(window = 7).mean().to_frame()
-        
-        
-        
-
-        
-        # #compute 7 day rolling average
-        # rolling_dict[county[0] + ' (7 day avg.)'] = data_dict[county[0]]['new cases'].rolling(window = 7).mean().to_frame()
-        
-        # #Computed combined cases
-        # combined_data['new cases'] = data_dict[county[0]].loc[:,'new cases'] + combined_data['new cases']
-        # combined_data['new cases'] = combined_data['new cases'].fillna(0)
+    #Create df that aggregates cases by states
+    state_df = county_df.groupby(['state', 'date'])[['new cases']].sum()
+    state_df['new deaths'] = county_df.groupby(['state', 'date'])['new deaths'].sum()
     
-    # #Make combined data into dataframe dictionary    
-    # combined_dict = {}
-    # combined_dict['combined'] = combined_data['new cases'].to_frame()
-    # combined_dict['combined rolling'] = combined_dict['combined'].rolling(window = 7).mean()
-            
-    return temp_df, combined_df
+    #Fix index, probably a better way to do this
+    state_df.reset_index(inplace = True)
+    state_df.index = state_df['date']
+    del state_df['date']
+    
+    state_df['new cases rolling'] = state_df['new cases'].rolling(window = 7).mean().to_frame()
+    state_df['new deaths rolling'] = state_df['new deaths'].rolling(window = 7).mean().to_frame()
+    
+    combined_df = county_df.groupby(['date'])[['new cases']].sum()
+    combined_df['new deaths'] = county_df.groupby(['date'])['new deaths'].sum()
+    
+    combined_df['new cases rolling'] = combined_df['new cases'].rolling(window = 7).mean().to_frame()
+    combined_df['new deaths rolling'] = combined_df['new deaths'].rolling(window = 7).mean().to_frame() 
+    
+    return county_df, state_df, combined_df
 
 # Plot data using dataframe dictionary
-def plot_counties(xvals, yvals,  label = 'Daily Case Counts'):
+def plot_data(df, grouping, dtype):
     a = plt.figure()
     
-    # for key, value in data.items(): 
-    #     x_data = value.index
-    #     y_data = value['new cases']
-        
-    plt.plot(x_data, y_data, label = key)
+    title = 'DC Metro Area Combined Daily ' + dtype
+    label = 'New ' + dtype
+    col_label = 'new ' + dtype
+    
+    # fig, ax = plt.subplots(figsize=(8,5))
+    
+    if grouping == 'combined':
+        plt.bar(df.index, df[col_label], label = label)
+        plt.plot(df.index, df[col_label + ' rolling'], label = label + ' (7-day Rolling Avg.)')
+                   
+    else:
+        for group in df[grouping].unique():
+            
+            cur_data = df.loc[df[grouping] == group, col_label]
+            cur_data_rolling = df.loc[df[grouping] == group, (col_label + ' rolling')]
+            
+            plt.bar(cur_data.index, cur_data, label = group + ' ' + label)
+            plt.plot(cur_data_rolling.index, cur_data_rolling, label = group + ' ' +  label + ' (7-day Rolling Avg.)')
+
+        # df.groupby([plot_type])['new cases'].plot()
+        # df.groupby([plot_type])['new cases rolling'].plot()
         
     plt.legend()
     plt.xlabel('Date')
     plt.ylabel('Daily New Cases')
-    plt.title(label)
-
+    plt.title(title)
 
     
 #%%Plot data
-temp_df, combined_df = parse_data(df, county_list)
+county_df, state_df, combined_df = parse_data(df, county_list)
 
-plot_counties(temp_df.index
+#%% Plot Cases
+plot_data(combined_df, 'combined', 'cases') #combine all DC metro area cases
+plot_data(state_df, 'state', 'cases') #show cases by states in DC metro area
+plot_data(county_df, 'county', 'cases') #show cases by county, a bit hard to visually interpret
 
-plot_counties(data_dict) #plot daily case counts by county
-plot_counties(rolling_dict, 'Rolling Average Daily Case Counts')
-plot_counties(combined_dict, 'Combined Daily Case Counts')
+#%% Plot Deaths
+plot_data(combined_df, 'combined', 'deaths') #combine all DC metro area deaths
+plot_data(state_df, 'state', 'deaths') #show deaths by states in DC metro area
+plot_data(county_df, 'county', 'deaths') #show deaths by county, a bit hard to visually interpret
+
+#%%
+#Plot subset of data
+# county_df, state_df, combined_df = parse_data(df, fairfax_only)
+# plot_data(county_df, 'county', 'cases')
 
 

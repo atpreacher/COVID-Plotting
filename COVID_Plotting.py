@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+
 url = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv'
 
 county_list = [('Calvert', 'Maryland'),
@@ -24,34 +25,62 @@ county_list = [('Calvert', 'Maryland'),
 
 arl_only = [('Arlington', 'Virginia')]
 
-df = pd.read_csv(url, index_col = 'date') 
-df.index = pd.to_datetime(df.index, format = '%Y-%m-%d')
+csv_df = pd.read_csv(url, index_col = 'date') 
+csv_df.index = pd.to_datetime(csv_df.index, format = '%Y-%m-%d')
 
 
 #%% Filter data and compute relevant info
+#Filters df to states of interest to speed up filtering
+def get_state_data(df, county_list):
+    counties, states = zip(*county_list)
+    state_list = set(states)
+    df_list = []
+    
+    for state in state_list:
+        state_cond =  df['state'].values == state
+        temp_df = df.loc[state_cond]
+        
+        df_list.append(temp_df)
+        
+    decimated_df = pd.concat(df_list)   
+    
+    return decimated_df
+
 def parse_data(df, county_list):
     county_df = pd.DataFrame()
     state_df = pd.DataFrame()
     combined_df = pd.DataFrame(columns = ['new cases'])
     combined_df = 0
     
-    temp_df = pd.DataFrame() #df for storing current county and state data
-    
+    df = get_state_data(df, county_list)
+
+    # col_list = ['county','state','fips','cases','deaths','new cases','new deaths','new cases rolling','new deaths rolling']
+    # temp_df = pd.DataFrame(columns = col_list) #df for storing current county and state data
+    # temp_df['new cases'].astype('int64')
+    # temp_df['new deaths'].astype('int64')
+
+    df_list = []
     
     for county in county_list:
-        county_cond = df['county'] == county[0] 
-        state_cond =  df['state'] == county[1]
-
+        # col_list = ['county','state','fips','cases','deaths','new cases','new deaths','new cases rolling','new deaths rolling']
+        # temp_df = pd.DataFrame(columns = col_list) #df for storing current county and state data
+        
+        print("Filtering data from " + county[0] + ' county')
+        county_cond = df['county'].values == county[0] 
+        state_cond =  df['state'].values == county[1]
         temp_df = df.loc[county_cond & state_cond]
-        temp_df['new cases'] = temp_df['cases'].diff() #compute daily new cases
-        temp_df['new deaths'] = temp_df['deaths'].diff()
-        temp_df['new cases rolling'] = temp_df['new cases'].rolling(window = 7).mean().to_frame() #compute rolling average of daily new cases
-        temp_df['new deaths rolling'] = temp_df['new deaths'].rolling(window = 7).mean().to_frame() #compute rolling average of daily new cases
         
+        #Would like to speed this up if possible
+        temp_df.loc[:, 'new cases'] = temp_df['cases'].diff() #compute daily new cases
+        temp_df.loc[:, 'new deaths'] = temp_df['deaths'].diff()
+        temp_df.loc[:, 'new cases rolling'] = temp_df['new cases'].rolling(window = 7).mean().to_frame() #compute rolling average of daily new cases
+        temp_df.loc[:, 'new deaths rolling'] = temp_df['new deaths'].rolling(window = 7).mean().to_frame() #compute rolling average of daily new cases
+    
+        df_list.append(temp_df)
         
-        county_df = pd.concat([county_df, temp_df])
+    county_df = pd.concat(df_list)     
         
-    #Create df that aggregates cases by states
+    # Create df that aggregates cases by states
     state_df = county_df.groupby(['state', 'date'])[['new cases']].sum()
     state_df['new deaths'] = county_df.groupby(['state', 'date'])['new deaths'].sum()
     
@@ -70,13 +99,14 @@ def parse_data(df, county_list):
     combined_df['new deaths rolling'] = combined_df['new deaths'].rolling(window = 7).mean().to_frame() 
     
     return county_df, state_df, combined_df
+    # return county_df
 
 # Plot data using dataframe dictionary
 def plot_data(df, grouping, dtype):
     a = plt.figure()
     
     title = 'DC Metro Area Combined Daily ' + dtype
-    label = 'New ' + dtype
+    label = 'Daily ' + dtype
     col_label = 'new ' + dtype
     
     # fig, ax = plt.subplots(figsize=(8,5))
@@ -103,18 +133,20 @@ def plot_data(df, grouping, dtype):
     plt.title(title)
 
     
-#%%Plot data
-county_df, state_df, combined_df = parse_data(df, county_list)
+#%%Parse data
+county_df, state_df, combined_df = parse_data(csv_df, county_list)
+
+
 
 #%% Plot Cases
-plot_data(combined_df, 'combined', 'cases') #combine all DC metro area cases
+# plot_data(combined_df, 'combined', 'cases') #combine all DC metro area cases
 plot_data(state_df, 'state', 'cases') #show cases by states in DC metro area
-plot_data(county_df, 'county', 'cases') #show cases by county, a bit hard to visually interpret
+# plot_data(county_df, 'county', 'cases') #show cases by county, a bit hard to visually interpret
 
 #%% Plot Deaths
 plot_data(combined_df, 'combined', 'deaths') #combine all DC metro area deaths
-plot_data(state_df, 'state', 'deaths') #show deaths by states in DC metro area
-plot_data(county_df, 'county', 'deaths') #show deaths by county, a bit hard to visually interpret
+# plot_data(state_df, 'state', 'deaths') #show deaths by states in DC metro area
+# plot_data(county_df, 'county', 'deaths') #show deaths by county, a bit hard to visually interpret
 
 #%%
 #Plot subset of data

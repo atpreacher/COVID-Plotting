@@ -23,6 +23,27 @@ county_list = [('Calvert', 'Maryland'),
                ('Warren', 'Virginia'),
                ('District of Columbia', 'District of Columbia')]
 
+# county_list = 
+
+# 'Kent'	'Delaware'
+# 'New Castle'	'Delaware'
+# 'Cecil'	'Maryland'
+# 'Atlantic'	'New Jersey'
+# 'Burlington'	'New Jersey'
+# 'Camden'	'New Jersey
+# 'Cape May	New Jersey
+# 'Cumberland'	New Jersey
+# 'Gloucester'	New Jersey
+# 'Salem'	New Jersey
+# 'Berks'	Pennsylvania
+# 'Bucks'	Pennsylvania
+# 'Chester'	Pennsylvania
+# 'Delaware'	Pennsylvania
+# 'Montgomery'	Pennsylvania
+# 'Philadelphia'	Pennsylvania
+
+
+
 arl_only = [('Arlington', 'Virginia')]
 
 csv_df = pd.read_csv(url, index_col = 'date') 
@@ -139,8 +160,8 @@ county_df, state_df, combined_df = parse_data(csv_df, county_list)
 
 
 #%% Plot Cases
-# plot_data(combined_df, 'combined', 'cases') #combine all DC metro area cases
-plot_data(state_df, 'state', 'cases') #show cases by states in DC metro area
+plot_data(combined_df, 'combined', 'cases') #combine all DC metro area cases
+# plot_data(state_df, 'state', 'cases') #show cases by states in DC metro area
 # plot_data(county_df, 'county', 'cases') #show cases by county, a bit hard to visually interpret
 
 #%% Plot Deaths
